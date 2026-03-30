@@ -2,12 +2,12 @@
 #include <linux/gpio.h>
 #include <linux/init.h>
 #include <linux/interrupt.h>
+#include <linux/jiffies.h>a
 #include <linux/kernel.h>
 #include <linux/kthread.h>
 #include <linux/mod_devicetable.h>
 #include <linux/module.h>
 #include <linux/platform_device.h>
-#include <linux/jiffies.h>a
 #include <linux/timer.h>
 
 #define DRIVER_NAME "rasp-blink"
@@ -24,91 +24,94 @@
 
 typedef struct context_t
 {
-    int                 irq_number;
-    struct gpio_desc   *gpio_led;
-    struct gpio_desc   *gpio_button;
+    int               irq_number;
+    struct gpio_desc *gpio_led;
+    struct gpio_desc *gpio_button;
 } context_t;
 
 static context_t ctx;
 
 static irqreturn_t button_irq_handler(int irq, void *dev_id)
 {
-    static int state = 0;
-    static unsigned long last_time = 0;
-    unsigned long current_time = jiffies;
-    
+    static int           state        = 0;
+    static unsigned long last_time    = 0;
+    unsigned long        current_time = jiffies;
+
     int btn_val = gpio_get_value(GPIO_BUTTON);
-    if(!btn_val && time_after(current_time, last_time + msecs_to_jiffies(DEBOUNCE_TIME_MS)))
+    if (!btn_val && time_after(current_time, last_time + msecs_to_jiffies(DEBOUNCE_TIME_MS)))
     {
         state = !state;
         gpio_set_value(GPIO_LED, state);
-	printk(KERN_INFO "BUTTON pressed\n");
+        printk(KERN_INFO "BUTTON pressed\n");
     }
     return IRQ_HANDLED;
 }
 
-
 static int led_button_probe(struct platform_device *pdev)
 {
     int ret;
-    
+
     if (!gpio_is_valid(GPIO_LED) || !gpio_is_valid(GPIO_BUTTON))
     {
         dev_err(&pdev->dev, "Failed to get LED gpio\n");
         return PTR_ERR(ctx.gpio_led);
     }
-    
+
     ret = gpio_request(GPIO_LED, "sysfs");
-    if (ret) {
+    if (ret)
+    {
         dev_err(&pdev->dev, "%s: Failed to request GPIO %d\n", DRIVER_NAME, GPIO_LED);
         return ret;
-    } 
+    }
 
     ret = gpio_direction_output(GPIO_LED, 1);
-    if (ret) {
+    if (ret)
+    {
         dev_err(&pdev->dev, "%s: Failed to set GPIO direction\n", DRIVER_NAME);
         gpio_free(GPIO_LED);
         return ret;
     }
 
     ret = gpio_request(GPIO_BUTTON, "sysfs");
-    if (ret) {
+    if (ret)
+    {
         dev_err(&pdev->dev, "%s: Failed to request GPIO %d\n", DRIVER_NAME, GPIO_BUTTON);
         return ret;
     }
-    dev_info(&pdev->dev,"%s: LED (GPIO17) initialized\n", DRIVER_NAME);
+    dev_info(&pdev->dev, "%s: LED (GPIO17) initialized\n", DRIVER_NAME);
 
     ret = gpio_direction_input(GPIO_BUTTON);
-    if (ret) {
+    if (ret)
+    {
         dev_err(&pdev->dev, "%s: Failed to set GPIO direction\n", DRIVER_NAME);
         gpio_free(GPIO_LED);
         gpio_free(GPIO_BUTTON);
         return ret;
     }
-    dev_info(&pdev->dev,"%s: BUTTON (GPIO27) initialized\n", DRIVER_NAME);
-    
-    ctx.irq_number  = gpio_to_irq(GPIO_BUTTON);
-    if(ctx.irq_number < 0)
+    dev_info(&pdev->dev, "%s: BUTTON (GPIO27) initialized\n", DRIVER_NAME);
+
+    ctx.irq_number = gpio_to_irq(GPIO_BUTTON);
+    if (ctx.irq_number < 0)
     {
         dev_err(&pdev->dev, "%s: Failed to request gpio irq\n", DRIVER_NAME);
         gpio_free(GPIO_LED);
         gpio_free(GPIO_BUTTON);
-	return ctx.irq_number;
+        return ctx.irq_number;
     }
     dev_info(&pdev->dev, "%s: irq requested=%d", DRIVER_NAME, ctx.irq_number);
 
     ret = devm_request_irq(&pdev->dev,
-		    ctx.irq_number,
-		    button_irq_handler,
-		    IRQF_TRIGGER_FALLING | IRQF_TRIGGER_RISING,
-		    "button_irq",
-		    NULL);
-    if(ret)
+                           ctx.irq_number,
+                           button_irq_handler,
+                           IRQF_TRIGGER_FALLING | IRQF_TRIGGER_RISING,
+                           "button_irq",
+                           NULL);
+    if (ret)
     {
         dev_err(&pdev->dev, "%s: Failed to request gpio irq\n", DRIVER_NAME);
         gpio_free(GPIO_LED);
         gpio_free(GPIO_BUTTON);
-	return ret;
+        return ret;
     }
     dev_info(&pdev->dev, "LED (GPIO17) and Button (GPIO27) initialized\n");
     return 0;
