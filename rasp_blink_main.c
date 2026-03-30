@@ -2,7 +2,7 @@
 #include <linux/gpio.h>
 #include <linux/init.h>
 #include <linux/interrupt.h>
-#include <linux/jiffies.h>a
+#include <linux/jiffies.h>
 #include <linux/kernel.h>
 #include <linux/kthread.h>
 #include <linux/mod_devicetable.h>
